@@ -80,7 +80,7 @@ function getdump(  command,wds,a,i) {
     return
 
   # Clear the dump directory
-  command = "ls /home/greenc/projects/numberofurl/dump/ | wc -l"
+  command = "ls " shquote(G["dump"]) " | wc -l"
   wds = strip(sys2var(command))
   if(int(wds) > 0)
     system("rm " shquote(G["dump"] "*"))
@@ -290,7 +290,7 @@ function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc
           if(lang == "total") continue
 
           #ss=lang site
-          #if(ss != "alswikipedia") continue
+          #if(ss != "zh-min-nanwikipedia") continue
 
           stati["pages"] = pagesF(lang "." site ".org")
 
@@ -327,14 +327,17 @@ function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc
 
           printf t(2) "[\"" lang "." site "\"," >> data
           for(i = 1; i <= c; i++) { 
+
+              printf stati[statn[i]] >> data
+              if(i != c) 
+                  printf "," >> data
+
               T[site][statn[i]] = T[site][statn[i]] + stati[statn[i]]        # totals ticker (active and closed)
               if(status == "active") 
                   TA[site][statn[i]] = TA[site][statn[i]] + stati[statn[i]]  # totals ticker (active only)
               if(status == "closed")
                   TC[site][statn[i]] = TC[site][statn[i]] + stati[statn[i]]  # totals ticker (closed only)
-              printf stati[statn[i]] >> data
-              if(i != c) 
-                  printf "," >> data
+
           }
           print "]," >> data
           close(data)
@@ -400,6 +403,7 @@ function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc
 # Number of pages in NS 0 & 6
 #
 function pagesF(site,  command,out) {
+
   command = Exe["wget"] " -q -O- --user-agent=" shquote(Agent) " " shquote("https://" site "/w/api.php?action=query&meta=siteinfo&siprop=statistics&format=json") " | jq -r '.query.statistics.articles + .query.statistics.images' "
   out = sys2var(command)
   if(empty(out))
@@ -411,6 +415,8 @@ function pagesF(site,  command,out) {
 # Number of archive.org/details links
 #
 function ialiburlsF(site,  command,out) {
+
+  gsub("-", "_", site)
 
   if(!checkexists("adn.com." site)) 
     return "0 0 0"
@@ -430,6 +436,8 @@ function ialiburlsF(site,  command,out) {
 #
 function urlsF(site,  command,out) {
 
+  gsub("-", "_", site)
+
   if(!checkexists("adn.com." site)) 
     return "0 0 0"
 
@@ -447,6 +455,8 @@ function urlsF(site,  command,out) {
 # Number of Wayback urls 
 #
 function waybackurlsF(site,  command,out) {
+
+  gsub("-", "_", site)
 
   if(!checkexists("adn.com." site)) 
     return "0 0 0"
@@ -466,6 +476,8 @@ function waybackurlsF(site,  command,out) {
 #
 function archivetodayurlsF(site,  command,out) {
 
+  gsub("-", "_", site)
+
   if(!checkexists("adn.com." site)) 
     return "0 0 0"
 
@@ -483,6 +495,8 @@ function archivetodayurlsF(site,  command,out) {
 # Number of WebCite urls 
 #
 function webciteurlsF(site,  command,out) {
+
+  gsub("-", "_", site)
 
   if(!checkexists("adn.com." site)) 
     return "0 0 0"
