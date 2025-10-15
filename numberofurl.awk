@@ -400,7 +400,7 @@ function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc
 # Number of pages in NS 0 & 6
 #
 function pagesF(site,  command,out) {
-  command = "wget -q -O- " shquote("https://" site "/w/api.php?action=query&meta=siteinfo&siprop=statistics&format=json") " | jq -r '.query.statistics.articles + .query.statistics.images' "
+  command = Exe["wget"] " -q -O- --user-agent=" shquote(Agent) " " shquote("https://" site "/w/api.php?action=query&meta=siteinfo&siprop=statistics&format=json") " | jq -r '.query.statistics.articles + .query.statistics.images' "
   out = sys2var(command)
   if(empty(out))
     return "0"
