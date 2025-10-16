@@ -60,8 +60,8 @@ BEGIN { # Bot run
 
     Optind = Opterr = 1
     while ((C = getopt(ARGC, ARGV, "d")) != -1) {
-      if(C == "d")
-        G["skipdump"] = 1
+        if(C == "d")
+            G["skipdump"] = 1
     }
 
     getdump()
@@ -77,22 +77,22 @@ BEGIN { # Bot run
 function getdump(  command,wds,a,i) {
 
   if(G["skipdump"]) 
-    return
+      return
 
   # Clear the dump directory
   command = "ls " shquote(G["dump"]) " | wc -l"
   wds = strip(sys2var(command))
   if(int(wds) > 0)
-    system("rm " shquote(G["dump"] "*"))
+      system("rm " shquote(G["dump"]) "*")
 
   # Generate allwikis.txt - a current list of wikis
   command = G["findlinks"] " -a -q -w " shquote(G["dump"])
   system(command)
 
-  # Remove sites you want to avoid 
+  # Remove certain sites 
   for(i = 1; i <= splitn(G["dump"] "allwikis.txt", a, i); i++) {
-    if(a[i] !~ "commonswiki_p")
-      print a[i] >> G["dump"] "allwikis.txt.t"
+      if(a[i] !~ "commonswiki_p")
+          print a[i] >> G["dump"] "allwikis.txt.t"
   }
   close(G["dump"] "allwikis.txt.t")
   command = "mv " shquote(G["dump"] "allwikis.txt.t") " " shquote(G["dump"] "allwikis.txt")
@@ -117,7 +117,7 @@ function currenttimeUTC() {
 #
 function t(n, r,i) {
   for(i = 1; i <= n; i++)
-    r = r "\t"
+      r = r "\t"
   return r
 }
 
@@ -130,8 +130,8 @@ function getpage(s,status,  fp,i) {
       if(i == 2 && status ~ "closed")          # If closed site MW API may not have data available..
           return readfile(G["home"] "apiclosed.json") # Return manufactured JSON with data values of 0
       fp = sys2var(s)
-#stdErr(s)
-#stdErr(fp)
+      #stdErr(s)
+      #stdErr(fp)
       if(! empty(fp) && fp ~ "(schema|statistics|sitematrix)")
           return fp
       sleep(30)
@@ -147,7 +147,7 @@ function getpage(s,status,  fp,i) {
 #
 function getconf( fp,i,a) {
 
-  return "api"
+  return "api"  # always use api for now
 
   # fp = getpage(Exe["wikiget"] " -l en -w 'Template:NUMBEROF/conf'")
 
@@ -222,7 +222,6 @@ function dataconfig(datac,  a,i,s,sn,jsona,configfp,language,site,status,countof
           else if(language == "vro") language = "fiu-vro"
           else if(language == "yue") language = "zh-yue"
 
-          # Avoid Commons entries
           if(!empty(language)) {
               countofsites = jsona["sitematrix",i,"site","0"]
 
@@ -287,14 +286,68 @@ function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc
           lang = jsona["data",k,"1"]
           site = jsona["data",k,"2"]
           status = jsona["data",k,"3"]
-          if(lang == "total") continue
 
+          # enable to debug 1 site
           #ss=lang site
           #if(ss != "zh-min-nanwikipedia") continue
 
+          if(status != "active")
+            continue
+
+          if(lang == "commons" && site == "wikimedia")
+            continue
+
+          if(lang == "total") 
+            continue
+
           stati["pages"] = pagesF(lang "." site ".org")
 
+          # special case names 
+
           if(site == "wikipedia") site = "wiki"   
+
+          if(lang == "be-tarask") language = "be-x-old" 
+          else if(site == "wikidata" && lang == "www")  {
+            lang = "wikidata"
+            site = "wiki"
+          }
+          else if(site == "wikifunctions" && lang == "www")  {
+            lang = "wikifunctions"
+            site = "wiki"
+          }
+          else if(site == "wikisource" && lang == "www")  {
+            lang = "wikisource"
+            site = "wiki"
+          }
+          else if(site == "wikimedia" && lang == "meta")  {
+            lang = "meta"
+            site = "wiki"
+          }
+          else if(site == "wikimedia" && lang == "incubator")  {
+            lang = "incubator"
+            site = "wiki"
+          }
+          else if(site == "wikimedia" && lang == "foundation")  {
+            lang = "foundation"
+            site = "wiki"
+          }
+          else if(site == "wikimedia" && lang == "wikimania")  {
+            lang = "wikimania"
+            site = "wiki"
+          }
+          else if(site == "wikimedia" && lang == "wikitech")  {
+            lang = "wikitech"
+            site = "wiki"
+          }
+          else if(site == "wikimedia" && lang == "donate")  {
+            lang = "donate"
+            site = "wiki"
+          }
+          else if(site == "wikimedia" && lang == "species")  {
+            lang = "species"
+            site = "wiki"
+          }
+
           chDir(G["dump"])
 
           x = ialiburlsF(lang site)
@@ -323,6 +376,52 @@ function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc
           stati["pageswebciteurls"] = splitx(x, "[ ]", 3)
 
           chDir(G["home"])
+
+          # revert special case names
+
+          if(lang == "be-x-old") 
+            language = "be-tarask"   
+          else if(site == "wiki" && lang == "wikidata") {
+            site = "wikidata"
+            lang = "www"
+          }
+          else if(site == "wiki" && lang == "wikifunctions") {
+            site = "wikifunctions"
+            lang = "www"
+          }
+          else if(site == "wiki" && lang == "wikisource") {
+            site = "wikisource"
+            lang = "www"
+          }
+          else if(site == "wiki" && lang == "meta") {
+            site = "wikimedia"
+            lang = "meta"
+          }
+          else if(site == "wiki" && lang == "incubator") {
+            site = "wikimedia"
+            lang = "incubator"
+          }
+          else if(site == "wiki" && lang == "foundation") {
+            site = "wikimedia"
+            lang = "foundation"
+          }
+          else if(site == "wiki" && lang == "wikimania") {
+            site = "wikimedia"
+            lang = "wikimania"
+          }
+          else if(site == "wiki" && lang == "wikitech") {
+            site = "wikimedia"
+            lang = "wikitech"
+          }
+          else if(site == "wiki" && lang == "donate") {
+            site = "wikimedia"
+            lang = "donate"
+          }
+          else if(site == "wiki" && lang == "species") {
+            site = "wikimedia"
+            lang = "species"
+          }
+
           if(site == "wiki") site = "wikipedia"   
 
           printf t(2) "[\"" lang "." site "\"," >> data
@@ -333,10 +432,11 @@ function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc
                   printf "," >> data
 
               T[site][statn[i]] = T[site][statn[i]] + stati[statn[i]]        # totals ticker (active and closed)
-              if(status == "active") 
-                  TA[site][statn[i]] = TA[site][statn[i]] + stati[statn[i]]  # totals ticker (active only)
-              if(status == "closed")
-                  TC[site][statn[i]] = TC[site][statn[i]] + stati[statn[i]]  # totals ticker (closed only)
+
+              #if(status == "active") 
+              #    TA[site][statn[i]] = TA[site][statn[i]] + stati[statn[i]]  # totals ticker (active only)
+              #if(status == "closed")
+              #    TC[site][statn[i]] = TC[site][statn[i]] + stati[statn[i]]  # totals ticker (closed only)
 
           }
           print "]," >> data
@@ -356,24 +456,24 @@ function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc
   }
 
   # Totals active only
-  for(siteT in TA) {
-      printf t(2) "[\"totalactive." siteT "\"," >> data
-      for(i = 1; i <= c; i++) {
-          printf TA[siteT][statn[i]] >> data
-          if(i != c) printf "," >> data
-      }
-      print "]," >> data
-  }
+#  for(siteT in TA) {
+#      printf t(2) "[\"totalactive." siteT "\"," >> data
+#      for(i = 1; i <= c; i++) {
+#          printf TA[siteT][statn[i]] >> data
+#          if(i != c) printf "," >> data
+#      }
+#      print "]," >> data
+#  }
 
   # Totals closed only
-  for(siteT in TC) {
-      printf t(2) "[\"totalclosed." siteT "\"," >> data
-      for(i = 1; i <= c; i++) {
-          printf TC[siteT][statn[i]] >> data
-          if(i != c) printf "," >> data
-      }
-      print "]," >> data
-  }
+#  for(siteT in TC) {
+#      printf t(2) "[\"totalclosed." siteT "\"," >> data
+#      for(i = 1; i <= c; i++) {
+#          printf TC[siteT][statn[i]] >> data
+#          if(i != c) printf "," >> data
+#      }
+#      print "]," >> data
+#  }
 
   # Grand total all sites combined, active and closed
   printf t(2) "[\"total.all\"," >> data
