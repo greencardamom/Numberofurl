@@ -287,9 +287,9 @@ function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc
           site = jsona["data",k,"2"]
           status = jsona["data",k,"3"]
 
-          # enable to debug 1 site
+          # enable to run for one site only
           #ss=lang site
-          #if(ss != "zh-min-nanwikipedia") continue
+          #if(ss != "etwikipedia") continue
 
           if(status != "active")
             continue
@@ -304,9 +304,12 @@ function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc
 
           # special case names 
 
-          if(site == "wikipedia") site = "wiki"   
+          if(site == "wikipedia") 
+            site = "wiki"   
 
-          if(lang == "be-tarask") language = "be-x-old" 
+          if(lang == "be-tarask") {
+            language = "be-x-old" 
+          }
           else if(site == "wikidata" && lang == "www")  {
             lang = "wikidata"
             site = "wiki"
@@ -379,8 +382,9 @@ function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc
 
           # revert special case names
 
-          if(lang == "be-x-old") 
-            language = "be-tarask"   
+          if(lang == "be-x-old") {
+            language = "be-tarask"
+          }   
           else if(site == "wiki" && lang == "wikidata") {
             site = "wikidata"
             lang = "www"
@@ -422,7 +426,8 @@ function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc
             lang = "species"
           }
 
-          if(site == "wiki") site = "wikipedia"   
+          if(site == "wiki") 
+            site = "wikipedia"   
 
           printf t(2) "[\"" lang "." site "\"," >> data
           for(i = 1; i <= c; i++) { 
@@ -521,13 +526,23 @@ function ialiburlsF(site,  command,out) {
   if(!checkexists("adn.com." site)) 
     return "0 0 0"
 
-  command = "echo " shquote(site) " | awk '{print \"adn.com.\" $0}' | xargs awk -v re='^(0|6)$' -ilibrary 'BEGINFILE{if(ERRNO) nextfile } {c = split($0, a, \" \"); if(c == 3) {ns = strip($2); if(ns ~ re) {if($3 ~ /\\/\\/(org[.]archive(([.]us)?[.]www([0-9]{1,3})?)?[.]\\/(stream|details)\\/)/) { Count++; $3 = subs(\"http:\", \"https:\", $3); U[$3] = 1; P[$1] = 1 } } } }END{if(Count > 0) print Count \" \" length(U) \" \" length(P) }'"
+  # This will filter out duplicates caused by two+ URLs in the same cite: one for base URL + one or more for page number URLs
+  # All URLs with a page number are counted even if duplicate. 
+  # If a base URL exists that matches any of the page URLs it is not counted
+  # If a base URL exists without any page URLs it is counted.
+  # Note: optimized for speed and memory use
+
+  # Manual command: -v verbose=1 to print the URLs to the screen, verbose=0 print only summary results
+  # echo 'etwiki' | awk '{print "adn.com." $0}' | xargs awk -v re='^(0|6)$' -v verbose=0 -ilibrary 'BEGINFILE{if(ERRNO) nextfile } BEGIN { real_count = 0; } {c = split($0, a, " "); if(c == 3) {ns = strip($2); if(ns ~ re) {if($3 ~ /\/\/(org[.]archive(([.]us)?[.]www([0-9]{1,3})?)?[.]\/(stream|details)\/)/) { full_url = $3; base = full_url; sub(/\/page\/.*$/, "", base); sub(/#page\/.*$/, "", base); article_key = $1 ":" base; sub(/^http:/, "https:", full_url); if(full_url ~ /\/page\/|#page\//) { has_page[article_key] = 1; tracked_urls[full_url] = 1; if(verbose == 1) { print $0; } real_count++; articles[$1] = 1; } else { base_lines[article_key] = $0; base_urls[article_key] = full_url; } } } } } END{ for(article_key in base_lines) { if(has_page[article_key] != 1) { if(verbose == 1) { print base_lines[article_key]; } real_count++; url = base_urls[article_key]; tracked_urls[url] = 1; split(base_lines[article_key], fields, " "); articles[fields[1]] = 1; } } print real_count " " length(tracked_urls) " " length(articles); }'"
+
+  command = "echo " shquote(site) " | awk '{print \"adn.com.\" $0}' | xargs awk -v re='^(0|6)$' -v verbose=0 -ilibrary 'BEGINFILE{if(ERRNO) nextfile } BEGIN { real_count = 0; } {c = split($0, a, \" \"); if(c == 3) {ns = strip($2); if(ns ~ re) {if($3 ~ /\\/\\/(org[.]archive(([.]us)?[.]www([0-9]{1,3})?)?[.]\\/(stream|details)\\/)/) { full_url = $3; base = full_url; sub(/\\/page\\/.*$/, \"\", base); sub(/#page\\/.*$/, \"\", base); article_key = $1 \":\" base; sub(/^http:/, \"https:\", full_url); if(full_url ~ /\\/page\\/|#page\\//) { has_page[article_key] = 1; tracked_urls[full_url] = 1; if(verbose == 1) { print $0; } real_count++; articles[$1] = 1; } else { base_lines[article_key] = $0; base_urls[article_key] = full_url; } } } } } END{ for(article_key in base_lines) { if(has_page[article_key] != 1) { if(verbose == 1) { print base_lines[article_key]; } real_count++; url = base_urls[article_key]; tracked_urls[url] = 1; split(base_lines[article_key], fields, \" \"); articles[fields[1]] = 1; } } print real_count \" \" length(tracked_urls) \" \" length(articles); }'"
 
   out = sys2var(command)
 
   if(empty(out))
     return "0 0 0"
   return out
+
 
 }
 
@@ -541,7 +556,7 @@ function urlsF(site,  command,out) {
   if(!checkexists("adn.com." site)) 
     return "0 0 0"
 
-  command = "echo " shquote(site) " | awk '{print \"adn.com.\" $0}' | xargs awk -v re='^(0|6)$' -ilibrary 'BEGINFILE{if(ERRNO) nextfile } {c = split($0, a, \" \"); if(c == 3) {ns = strip($2); if(ns ~ re) {if($3 !~ /\\/\\/(org[.]archive[.]\\/web|org[.]archive[.]web[.]\\/|(is|today|ph|fo|li|vn|md)[.]archive[.]\\/|org[.]webcitation[.]www[.?])/) { Count++; $3 = subs(\"http:\", \"https:\", $3); U[$3] = 1; P[$1] = 1 } } } }END{if(Count > 0) print Count \" \" length(U) \" \" length(P) }'"
+  command = "echo " shquote(site) " | awk '{print \"adn.com.\" $0}' | xargs awk -v re='^(0|6)$' -ilibrary 'BEGINFILE{if(ERRNO) nextfile } BEGIN { Count=0; } {c = split($0, a, \" \"); if(c == 3) {ns = strip($2); if(ns ~ re) {if($3 !~ /\\/\\/(org[.]archive[.]\\/web|org[.]archive[.]web[.]\\/|(is|today|ph|fo|li|vn|md)[.]archive[.]\\/|org[.]webcitation[.]www[.?])/) { Count++; url=$3; sub(/^http:/, \"https:\", url); U[url] = 1; P[$1] = 1 } } } }END{if(Count > 0) print Count \" \" length(U) \" \" length(P) }'"
 
   out = sys2var(command)
 
@@ -561,7 +576,7 @@ function waybackurlsF(site,  command,out) {
   if(!checkexists("adn.com." site)) 
     return "0 0 0"
 
-  command = "echo " shquote(site) " | awk '{print \"adn.com.\" $0}' | xargs awk -v re='^(0|6)$' -ilibrary 'BEGINFILE{if(ERRNO) nextfile } {c = split($0, a, \" \"); if(c == 3) {ns = strip($2); if(ns ~ re) {if($3 ~ /\\/\\/(org[.]archive[.]\\/web|org[.]archive[.]web[.]\\/)/) { Count++; $3 = subs(\"http:\", \"https:\", $3); U[$3] = 1; P[$1] = 1 } } } }END{if(Count > 0) print Count \" \" length(U) \" \" length(P) }'"
+  command = "echo " shquote(site) " | awk '{print \"adn.com.\" $0}' | xargs awk -v re='^(0|6)$' -ilibrary 'BEGINFILE{if(ERRNO) nextfile } BEGIN {Count=0;} {c = split($0, a, \" \"); if(c == 3) {ns = strip($2); if(ns ~ re) {if($3 ~ /\\/\\/(org[.]archive[.]\\/web|org[.]archive[.]web[.]\\/)/) { Count++; url=$3; sub(/^http:/, \"https:\", url); U[url] = 1; P[$1] = 1 } } } }END{if(Count > 0) print Count \" \" length(U) \" \" length(P) }'"
 
   out = sys2var(command)
 
@@ -581,7 +596,7 @@ function archivetodayurlsF(site,  command,out) {
   if(!checkexists("adn.com." site)) 
     return "0 0 0"
 
-  command = "echo " shquote(site) " | awk '{print \"adn.com.\" $0}' | xargs awk -v re='^(0|6)$' -ilibrary 'BEGINFILE{if(ERRNO) nextfile } {c = split($0, a, \" \"); if(c == 3) {ns = strip($2); if(ns ~ re) {if($3 ~ /\\/\\/(is|today|ph|fo|li|vn|md)[.]archive[.]\\//) { Count++; $3 = subs(\"http:\", \"https:\", $3); U[$3] = 1; P[$1] = 1 } } } }END{if(Count > 0) print Count \" \" length(U) \" \" length(P) }'"
+  command = "echo " shquote(site) " | awk '{print \"adn.com.\" $0}' | xargs awk -v re='^(0|6)$' -ilibrary 'BEGINFILE{if(ERRNO) nextfile } BEGIN {Count=0;} {c = split($0, a, \" \"); if(c == 3) {ns = strip($2); if(ns ~ re) {if($3 ~ /\\/\\/(is|today|ph|fo|li|vn|md)[.]archive[.]\\//) { Count++; url=$3; sub(/^http:/, \"https:\", url); U[url] = 1; P[$1] = 1 } } } }END{if(Count > 0) print Count \" \" length(U) \" \" length(P) }'"
 
   out = sys2var(command)
 
@@ -601,7 +616,7 @@ function webciteurlsF(site,  command,out) {
   if(!checkexists("adn.com." site)) 
     return "0 0 0"
 
-  command = "echo " shquote(site) " | awk '{print \"adn.com.\" $0}' | xargs awk -v re='^(0|6)$' -ilibrary 'BEGINFILE{if(ERRNO) nextfile } {c = split($0, a, \" \"); if(c == 3) {ns = strip($2); if(ns ~ re) {if($3 ~ /\\/\\/org[.]webcitation[.]www[.]/) { Count++; $3 = subs(\"http:\", \"https:\", $3); U[$3] = 1; P[$1] = 1 } } } }END{if(Count > 0) print Count \" \" length(U) \" \" length(P) }'"
+  command = "echo " shquote(site) " | awk '{print \"adn.com.\" $0}' | xargs awk -v re='^(0|6)$' -ilibrary 'BEGINFILE{if(ERRNO) nextfile } BEGIN {Count=0;} {c = split($0, a, \" \"); if(c == 3) {ns = strip($2); if(ns ~ re) {if($3 ~ /\\/\\/org[.]webcitation[.]www[.]/) { Count++; url=$3; sub(/^http:/, \"https:\", url); U[url] = 1; P[$1] = 1 } } } }END{if(Count > 0) print Count \" \" length(U) \" \" length(P) }'"
 
   out = sys2var(command)
 
