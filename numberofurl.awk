@@ -269,7 +269,7 @@ function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc
 
   desc = "Wikimedia external URL statistics. See User:GreenC/Exturls for docs. Last update: " currenttimeUTC()
   source = "Data source: Calculated from [[:mw:API:Siteinfo]] and [https://github.com/greencardamom/Findlinks Findlinks]. Posted by [https://github.com/greencardamom/Numberofurl Numberofurl bot]. This page is generated automatically, manual changes will be overwritten."
-  header = "site=string&pages=number&ialiburls=number&uniqialiburls=number&pagesialib=number&urls=number&uniqurls=number&pagesurls=number&waybackurls=number&uniqwaybackurls=number&pageswaybackurls=number&archivetodayurls=number&uniqarchivetodayurls=number&pagesarchivetodayurls=number&webciteurls=number&uniqwebciteurls=number&pageswebciteurls=number"
+  header = "site=string&pages=number&ialiburls=number&uniqialiburls=number&pagesialiburls=number&urls=number&uniqurls=number&pagesurls=number&waybackurls=number&uniqwaybackurls=number&pageswaybackurls=number&archivetodayurls=number&uniqarchivetodayurls=number&pagesarchivetodayurls=number&webciteurls=number&uniqwebciteurls=number&pageswebciteurls=number"
   jsonhead(desc, source, header, data)
   
   # Get the configuration JSON
@@ -289,7 +289,7 @@ function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc
 
           # enable to run for one site only
           #ss=lang site
-          #if(ss != "etwikipedia") continue
+          #if(ss !~ "tarask") continue
 
           if(status != "active")
             continue
@@ -308,7 +308,8 @@ function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc
             site = "wiki"   
 
           if(lang == "be-tarask") {
-            language = "be-x-old" 
+            lang = "be-x-old" 
+            site = "wiki"
           }
           else if(site == "wikidata" && lang == "www")  {
             lang = "wikidata"
@@ -383,7 +384,7 @@ function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc
           # revert special case names
 
           if(lang == "be-x-old") {
-            language = "be-tarask"
+            lang = "be-tarask"
           }   
           else if(site == "wiki" && lang == "wikidata") {
             site = "wikidata"
