@@ -16,6 +16,7 @@ BEGIN { # Bot cfg
   _defaults = "home      = /home/greenc/toolforge/numberofurl/ \
                emailfp   = /home/greenc/toolforge/scripts/secrets/greenc.email \
                findlinks = /home/greenc/toolforge/findlinks/findlinks.awk \
+               userid    = User:GreenC \
                version   = 1.0 \
                copyright = 2025"
 
@@ -23,8 +24,10 @@ BEGIN { # Bot cfg
 
   BotName = "numberofurl"
   Home = G["home"]
-  Agent = "numberofurl acre User:GreenC enwiki" 
   Engine = 3
+
+  # Agent string format non-compliance could result in 429 (too many requests) rejections by WMF API
+  Agent = BotName "-" G["version"] "-" G["copyright"] " (" G["userid"] "; mailto:" strip(readfile(G["emailfp"])) ")"
 
   G["email"] = strip(readfile(G["emailfp"]))
 
@@ -205,7 +208,7 @@ function dataconfig(datac,  a,i,s,sn,jsona,configfp,language,site,status,countof
   header = "language=string&project=string&status=string"
   jsonhead(desc, source, header, datac)
 
-  configfp = getpage(Exe["wget"] " --user-agent=" shquote(Agent) " -q -O- " shquote("https://en.wikipedia.org/w/api.php?action=sitematrix" G["apitail"]), "")
+  configfp = getpage(Exe["wget"] Wget_opts " -q -O- " shquote("https://en.wikipedia.org/w/api.php?action=sitematrix" G["apitail"]), "")
   if(query_json(configfp, jsona) >= 0) {
 
       for(i = 0; i <= jsona["sitematrix","count"]; i++) {
@@ -510,7 +513,7 @@ function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc
 #
 function pagesF(site,  command,out) {
 
-  command = Exe["wget"] " -q -O- --user-agent=" shquote(Agent) " " shquote("https://" site "/w/api.php?action=query&meta=siteinfo&siprop=statistics&format=json") " | jq -r '.query.statistics.articles + .query.statistics.images' "
+  command = Exe["wget"] Wget_opts " -q -O- " shquote("https://" site "/w/api.php?action=query&meta=siteinfo&siprop=statistics&format=json") " | jq -r '.query.statistics.articles + .query.statistics.images' "
   out = sys2var(command)
   if(empty(out))
     return "0"
