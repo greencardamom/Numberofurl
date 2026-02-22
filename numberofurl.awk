@@ -282,7 +282,7 @@ function dataconfig(datac,  a,i,s,sn,jsona,configfp,language,site,status,countof
 #
 # Generate exturls.tab 
 #
-function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc,source,header,siteT) {
+function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc,source,header,siteT,g_str,g_arr) {
 
   desc = "Wikimedia external URL statistics. See User:GreenC/Exturls for docs. Last update: " currenttimeUTC()
   source = "Data source: Calculated from [[:mw:API:Siteinfo]] and [https://github.com/greencardamom/Findlinks Findlinks]. Posted by [https://github.com/greencardamom/Numberofurl Numberofurl bot]. This page is generated automatically, manual changes will be overwritten."
@@ -498,6 +498,17 @@ function dataurltab(data,  c,i,x,cfgfp,k,lang,site,status,jsona,stati,statn,desc
 #      print "]," >> data
 #  }
 
+  # Calculate true globally unique URLs across all dumps
+  # Returns: ialib urls wayback archivetoday webcite
+  g_str = global_unique_totals(G["dump"])
+  split(g_str, g_arr, " ")
+
+  TT["uniqialiburls"]        = g_arr[1]
+  TT["uniqurls"]             = g_arr[2]
+  TT["uniqwaybackurls"]      = g_arr[3]
+  TT["uniqarchivetodayurls"] = g_arr[4]
+  TT["uniqwebciteurls"]      = g_arr[5]
+
   # Grand total all sites combined, active and closed
   printf t(2) "[\"total.all\"," >> data
   for(i = 1; i <= c; i++) {
@@ -561,7 +572,6 @@ function ialiburlsF(site,  command,out) {
     return "0 0 0"
   return out
 
-
 }
 
 #
@@ -574,7 +584,7 @@ function urlsF(site,  command,out) {
   if(!checkexists("adn.com." site)) 
     return "0 0 0"
 
-  command = "echo " shquote(site) " | awk '{print \"adn.com.\" $0}' | xargs awk -v re='^(0|6)$' -ilibrary 'BEGINFILE{if(ERRNO) nextfile } BEGIN { Count=0; } {c = split($0, a, \" \"); if(c == 3) {ns = strip($2); if(ns ~ re) {if($3 !~ /\\/\\/(org[.]archive[.]\\/web|org[.]archive[.]web[.]\\/|(is|today|ph|fo|li|vn|md)[.]archive[.]\\/|org[.]webcitation[.]www[.?])/) { Count++; url=$3; sub(/^http:/, \"https:\", url); U[url] = 1; P[$1] = 1 } } } }END{if(Count > 0) print Count \" \" length(U) \" \" length(P) }'"
+  command = "echo " shquote(site) " | awk '{print \"adn.com.\" $0}' | xargs awk -v re='^(0|6)$' -ilibrary 'BEGINFILE{if(ERRNO) nextfile } BEGIN { Count=0; } {c = split($0, a, \" \"); if(c == 3) {ns = strip($2); if(ns ~ re) {if($3 !~ /\\/\\/(org[.]archive[.]\\/web|org[.]archive[.]web[.]\\/|(is|today|ph|fo|li|vn|md)[.]archive[.]|org[.]webcitation[.]www[.?])/) { Count++; url=$3; sub(/^http:/, \"https:\", url); U[url] = 1; P[$1] = 1 } } } }END{if(Count > 0) print Count \" \" length(U) \" \" length(P) }'"
 
   out = sys2var(command)
 
@@ -614,7 +624,7 @@ function archivetodayurlsF(site,  command,out) {
   if(!checkexists("adn.com." site)) 
     return "0 0 0"
 
-  command = "echo " shquote(site) " | awk '{print \"adn.com.\" $0}' | xargs awk -v re='^(0|6)$' -ilibrary 'BEGINFILE{if(ERRNO) nextfile } BEGIN {Count=0;} {c = split($0, a, \" \"); if(c == 3) {ns = strip($2); if(ns ~ re) {if($3 ~ /\\/\\/(is|today|ph|fo|li|vn|md)[.]archive[.]\\//) { Count++; url=$3; sub(/^http:/, \"https:\", url); U[url] = 1; P[$1] = 1 } } } }END{if(Count > 0) print Count \" \" length(U) \" \" length(P) }'"
+  command = "echo " shquote(site) " | awk '{print \"adn.com.\" $0}' | xargs awk -v re='^(0|6)$' -ilibrary 'BEGINFILE{if(ERRNO) nextfile } BEGIN {Count=0;} {c = split($0, a, \" \"); if(c == 3) {ns = strip($2); if(ns ~ re) {if($3 ~ /\\/\\/(is|today|ph|fo|li|vn|md)[.]archive[.]/) { Count++; url=$3; sub(/^http:/, \"https:\", url); U[url] = 1; P[$1] = 1 } } } }END{if(Count > 0) print Count \" \" length(U) \" \" length(P) }'"
 
   out = sys2var(command)
 
@@ -644,3 +654,104 @@ function webciteurlsF(site,  command,out) {
 
 }
 
+
+#
+# Calculate globally unique URLs across all wikis natively
+# Returns a space-separated string of unique counts: 
+# ialib urls wayback archivetoday webcite
+#
+function global_unique_totals(dumpdir,   cmd, line, a, c, ns, url, u, G_IALib, G_Urls, G_Wayback, G_ArcToday, G_WebCite) {
+
+    # Use cat to stream all dump files directly into awk's getline
+    cmd = "cat " shquote(dumpdir) "adn.com.* 2>/dev/null"
+    
+    while ((cmd | getline line) > 0) {
+        c = split(line, a, " ")
+        if (c == 3) {
+            ns = strip(a[2])
+            
+            if (ns ~ /^(0|6)$/) {
+                url = a[3]
+                
+                # Protocol normalization for baseline uniqueness
+                sub(/^http:/, "https:", url)
+                
+                # 1. WebCite
+                if (url ~ /\/\/org\.webcitation\.www\./) {
+                    G_WebCite[url] = 1
+                }
+                # 2. Wayback Machine
+                else if (url ~ /\/\/(org\.archive\.\/web|org\.archive\.web\.\/)/) {
+                    G_Wayback[url] = 1
+                }
+                # 3. IALib (Archive.org details/stream)
+                else if (url ~ /\/\/org\.archive((\.us)?\.www([0-9]{1,3})?)?\.\/(stream|details)\//) {
+                    u = url
+                    # We still must strip page numbers for IALib to group base URLs correctly
+                    sub(/\/page\/.*$/, "", u)
+                    sub(/#page\/.*$/, "", u)
+                    G_IALib[u] = 1
+                }
+                # 4. Archive.today (Fully Normalized for Many-to-1 Uniqueness)
+                else if (url ~ /\/\/(is|today|ph|fo|li|vn|md)\.archive\./) {
+                    u = url
+                    
+                    # 1. Protocol normalize
+                    # sub(/^http:/, "https:", u) # already done at top of while loop
+
+                    # 2. #selection fragment normalize
+                    sub(/#selection.*$/, "", u)
+                    
+                    n_slash = split(u, p, "/")
+                    if (p[3] ~ /^(is|today|ph|fo|li|vn|md)\.archive\./) {
+                        
+                        # 3. Domain Reversal (Required for clean TLD targeting)
+                        c_pat = patsplit(p[3], f, /[.]/, sep)
+                        n = ""
+                        for(i = c_pat; i >= 0; i--) n = n sep[i] "."
+                        gsub(/(^[.]|[.]$)/, "", n)
+                        
+                        # 4. Canonical TLD Normalization
+                        sub(/archive\.(is|ph|md|fo|vn|li)$/, "archive.today", n)
+                        p[3] = n
+                        
+                        # 5. Timestamp Normalization
+                        if (p[4] ~ /^[0-9.-]+$/ && length(p[4]) >= 14) {
+                            gsub(/[.-]/, "", p[4])
+                        }
+                        
+                        # Reassembly
+                        u = p[1] "//" p[3]
+                        for(i = 4; i <= n_slash; i++) u = u "/" p[i]
+                    }
+                    
+                    # Hash the fully canonical URL
+                    G_ArcToday[u] = 1
+                }
+
+                # 5. Generic URLs (Anything not caught above)
+                else {
+                    G_Urls[url] = 1
+                }
+            }
+        }
+    }
+    close(cmd)
+
+    # Capture lengths
+    u_ialib   = length(G_IALib)
+    u_urls    = length(G_Urls)
+    u_wayback = length(G_Wayback)
+    u_arctd   = length(G_ArcToday)
+    u_webcite = length(G_WebCite)
+
+    # Free memory 
+    delete G_IALib
+    delete G_Urls
+    delete G_Wayback
+    delete G_ArcToday
+    delete G_WebCite
+
+    return u_ialib " " u_urls " " u_wayback " " u_arctd " " u_webcite
+
+}
