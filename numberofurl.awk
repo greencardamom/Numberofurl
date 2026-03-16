@@ -67,8 +67,8 @@ BEGIN { # Bot run
             G["skipdump"] = 1
     }
 
-    getdump()
-    dataconfig(G["datac"])    # create what used to be Data:Wikipedia_statistics/config.tab via API:SiteMatrix
+    #getdump()
+    #dataconfig(G["datac"])    # create what used to be Data:Wikipedia_statistics/config.tab via API:SiteMatrix
     dataurltab(G["datau"])    # create Data:Wikipedia_statistics/exturls.tab
 
     healthcheckwatch()
@@ -662,11 +662,17 @@ function webciteurlsF(site,  command,out) {
 # Returns a space-separated string of unique counts: 
 # ialib urls wayback archivetoday webcite
 #
-function global_unique_totals(dumpdir,   cmd, line, a, c, ns, url, u, G_IALib, G_Urls, G_Wayback, G_ArcToday, G_WebCite) {
+function global_unique_totals(dumpdir,    cmd, line, a, c, ns, url, u, p, f, n, sep, i, n_slash, c_pat, cmd_ialib, cmd_urls, cmd_wayback, cmd_arctd, cmd_webcite, u_ialib, u_urls, u_wayback, u_arctd, u_webcite) {
 
-    # Use cat to stream all dump files directly into awk's getline
     cmd = "cat " shquote(dumpdir) "adn.com.* 2>/dev/null"
     
+    # Setup sorting pipelines that stream to disk-based temporary files
+    cmd_ialib   = "sort -u | wc -l > " shquote(dumpdir "count_ialib.txt")
+    cmd_urls    = "sort -u | wc -l > " shquote(dumpdir "count_urls.txt")
+    cmd_wayback = "sort -u | wc -l > " shquote(dumpdir "count_wayback.txt")
+    cmd_arctd   = "sort -u | wc -l > " shquote(dumpdir "count_arctd.txt")
+    cmd_webcite = "sort -u | wc -l > " shquote(dumpdir "count_webcite.txt")
+
     while ((cmd | getline line) > 0) {
         c = split(line, a, " ")
         if (c == 3) {
@@ -680,11 +686,11 @@ function global_unique_totals(dumpdir,   cmd, line, a, c, ns, url, u, G_IALib, G
                 
                 # 1. WebCite
                 if (url ~ /\/\/org\.webcitation\.www\./) {
-                    G_WebCite[url] = 1
+                    print url | cmd_webcite
                 }
                 # 2. Wayback Machine
                 else if (url ~ /\/\/(org\.archive\.\/web|org\.archive\.web\.\/)/) {
-                    G_Wayback[url] = 1
+                    print url | cmd_wayback
                 }
                 # 3. IALib (Archive.org details/stream)
                 else if (url ~ /\/\/org\.archive((\.us)?\.www([0-9]{1,3})?)?\.\/(stream|details)\//) {
@@ -692,15 +698,12 @@ function global_unique_totals(dumpdir,   cmd, line, a, c, ns, url, u, G_IALib, G
                     # We still must strip page numbers for IALib to group base URLs correctly
                     sub(/\/page\/.*$/, "", u)
                     sub(/#page\/.*$/, "", u)
-                    G_IALib[u] = 1
+                    print u | cmd_ialib
                 }
                 # 4. Archive.today (Fully Normalized for Many-to-1 Uniqueness)
                 else if (url ~ /\/\/(is|today|ph|fo|li|vn|md)\.archive\./) {
                     u = url
                     
-                    # 1. Protocol normalize
-                    # sub(/^http:/, "https:", u) # already done at top of while loop
-
                     # 2. #selection fragment normalize
                     sub(/#selection.*$/, "", u)
                     
@@ -727,33 +730,61 @@ function global_unique_totals(dumpdir,   cmd, line, a, c, ns, url, u, G_IALib, G
                         for(i = 4; i <= n_slash; i++) u = u "/" p[i]
                     }
                     
-                    # Hash the fully canonical URL
-                    G_ArcToday[u] = 1
+                    # Send the fully canonical URL to the sort pipe
+                    print u | cmd_arctd
                 }
-
                 # 5. Generic URLs (Anything not caught above)
                 else {
-                    G_Urls[url] = 1
+                    print url | cmd_urls
                 }
             }
         }
     }
     close(cmd)
 
-    # Capture lengths
-    u_ialib   = length(G_IALib)
-    u_urls    = length(G_Urls)
-    u_wayback = length(G_Wayback)
-    u_arctd   = length(G_ArcToday)
-    u_webcite = length(G_WebCite)
+    # Close all pipes to flush data and allow sort & wc to complete
+    close(cmd_ialib)
+    close(cmd_urls)
+    close(cmd_wayback)
+    close(cmd_arctd)
+    close(cmd_webcite)
 
-    # Free memory 
-    delete G_IALib
-    delete G_Urls
-    delete G_Wayback
-    delete G_ArcToday
-    delete G_WebCite
+    # Read the counts back from the temporary files
+    getline u_ialib < (dumpdir "count_ialib.txt")
+    close(dumpdir "count_ialib.txt")
+    
+    getline u_urls < (dumpdir "count_urls.txt")
+    close(dumpdir "count_urls.txt")
+    
+    getline u_wayback < (dumpdir "count_wayback.txt")
+    close(dumpdir "count_wayback.txt")
+    
+    getline u_arctd < (dumpdir "count_arctd.txt")
+    close(dumpdir "count_arctd.txt")
+    
+    getline u_webcite < (dumpdir "count_webcite.txt")
+    close(dumpdir "count_webcite.txt")
+
+    # Strip any stray whitespace/newlines from wc output
+    u_ialib   = strip(u_ialib)
+    u_urls    = strip(u_urls)
+    u_wayback = strip(u_wayback)
+    u_arctd   = strip(u_arctd)
+    u_webcite = strip(u_webcite)
+
+    # Ensure empty datasets return 0 instead of an empty string
+    if (u_ialib == "") u_ialib = 0
+    if (u_urls == "") u_urls = 0
+    if (u_wayback == "") u_wayback = 0
+    if (u_arctd == "") u_arctd = 0
+    if (u_webcite == "") u_webcite = 0
+
+    # Cleanup temp files
+    system("rm -f " shquote(dumpdir "count_ialib.txt"))
+    system("rm -f " shquote(dumpdir "count_urls.txt"))
+    system("rm -f " shquote(dumpdir "count_wayback.txt"))
+    system("rm -f " shquote(dumpdir "count_arctd.txt"))
+    system("rm -f " shquote(dumpdir "count_webcite.txt"))
 
     return u_ialib " " u_urls " " u_wayback " " u_arctd " " u_webcite
-
 }
