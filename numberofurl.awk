@@ -67,8 +67,8 @@ BEGIN { # Bot run
             G["skipdump"] = 1
     }
 
-    #getdump()
-    #dataconfig(G["datac"])    # create what used to be Data:Wikipedia_statistics/config.tab via API:SiteMatrix
+    getdump()
+    dataconfig(G["datac"])    # create what used to be Data:Wikipedia_statistics/config.tab via API:SiteMatrix
     dataurltab(G["datau"])    # create Data:Wikipedia_statistics/exturls.tab
 
     healthcheckwatch()
